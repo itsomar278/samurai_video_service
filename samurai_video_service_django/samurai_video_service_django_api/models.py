@@ -8,6 +8,7 @@ class Status(models.IntegerChoices):
     ERROR_OCCURRED = 1, 'Error Occurred'
     IN_PROGRESS = 2, 'In Progress'
     READY = 3, 'Ready'
+    DELIVERED = 4, 'Delivered'
 
 
 class VideoTranslation(models.Model):
