@@ -1,6 +1,7 @@
 from django.urls import path
-from .views import VideoTranslationCreateView
+from .views import VideoTranslationStatusView, VideoTranslationByUserView
 
 urlpatterns = [
-    path('video-transiclate/create/', VideoTranslationCreateView.as_view(), name='video-translation-create'),
+    path('transclation-status/', VideoTranslationStatusView.as_view(), name='transclation_status'),
+    path('transclation-status-by-user-id/', VideoTranslationByUserView.as_view(), name='transclation_status_by_user_id'),
 ]

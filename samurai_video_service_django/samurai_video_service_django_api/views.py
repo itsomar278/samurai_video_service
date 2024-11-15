@@ -1,51 +1,48 @@
-from rest_framework import status
-from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 from .models import VideoTranslation
-from .serializers import VideoTranslationSerializer, VideoTranslationCreateDTO
-from .download_audio import download_audio
-from .transcribe_translate import transcribe_or_translate
-from .utils.S3uploader import S3Uploader
-import os
 
-class VideoTranslationCreateView(APIView):
-    def post(self, request):
-        dto_serializer = VideoTranslationCreateDTO(data=request.data)
-        if dto_serializer.is_valid():
-            user_id = dto_serializer.validated_data['user_id']
-            start_minute = dto_serializer.validated_data['start_minute']
-            end_minute = dto_serializer.validated_data['end_minute']
-            video_url = dto_serializer.validated_data['video_url']
+class VideoTranslationStatusView(APIView):
+    def get(self, request):
+        request_id = request.query_params.get('request_id')
 
-            start_time = f"{int(start_minute // 60):02}:{int(start_minute % 60):02}:00"
-            end_time = f"{int(end_minute // 60):02}:{int(end_minute % 60):02}:00"
+        if not request_id:
+            return Response({"error": "Request ID is required as a query parameter."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-            audio_file_path = download_audio(video_url, start_time, end_time)
+        try:
+            translation = VideoTranslation.objects.get(request_id=request_id)
+            return Response({
+                "request_id": str(translation.request_id),
+                "status": translation.get_status_display(),
+            }, status=status.HTTP_200_OK)
+        except VideoTranslation.DoesNotExist:
+            return Response({"error": "Translation request not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            if not audio_file_path:
-                return Response({"error": "Failed to download or trim audio"},
-                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+class VideoTranslationByUserView(APIView):
+    def get(self, request):
+        user_id = request.query_params.get('user_id')
 
-            transcription_text, output_type = transcribe_or_translate(audio_file_path)
+        if not user_id:
+            return Response({"error": "User ID is required as a query parameter."},
+                             status=status.HTTP_400_BAD_REQUEST)
 
-            os.remove(audio_file_path)
+        translations = VideoTranslation.objects.filter(user_id=user_id)
 
-            try:
-                s3_uploader = S3Uploader()
-                s3_file_url = s3_uploader.upload_transcription(transcription_text)
-            except Exception as e:
-                return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if not translations.exists():
+            return Response({"error": "No translations found for this user."},
+                             status=status.HTTP_404_NOT_FOUND)
 
-            video_translation = VideoTranslation.objects.create(
-                user_id=user_id,
-                start_minute=start_minute,
-                end_minute=end_minute,
-                video_url=video_url,
-                translated_transcription=transcription_text,
-                s3_file_url=s3_file_url
-            )
+        translation_data = [
+            {
+                "request_id": str(translation.request_id),
+                "status": translation.get_status_display(),
+                "video_url": translation.video_url,
+                "start_minute": translation.start_minute,
+                "end_minute": translation.end_minute,
+            }
+            for translation in translations
+        ]
 
-            response_serializer = VideoTranslationSerializer(video_translation)
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
-        return Response(dto_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"translations": translation_data}, status=status.HTTP_200_OK)
