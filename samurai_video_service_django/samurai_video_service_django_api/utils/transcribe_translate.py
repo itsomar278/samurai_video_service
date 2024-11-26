@@ -1,35 +1,40 @@
-import whisper
-import torch
+import os
+from faster_whisper import WhisperModel, BatchedInferencePipeline
 
-# Global variable to hold the model
+# Load Whisper model once
 whisper_model = None
+batched_model = None
 
-def check_cuda_availability():
-    """Check and print CUDA availability and GPU details."""
-    if torch.cuda.is_available():
-        print("CUDA available")
-        print("Device count:", torch.cuda.device_count())
-        print("Current device:", torch.cuda.current_device())
-        print("Device name:", torch.cuda.get_device_name(0))
-    else:
-        print("No GPU found")
 
 def load_whisper_model():
     """Load the Whisper model once."""
-    global whisper_model
+    os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+    global whisper_model, batched_model
     if whisper_model is None:
-        whisper_model = whisper.load_model("base", device="cuda")
-        print("Whisper model loaded.")
-    return whisper_model
+        whisper_model = WhisperModel("base", device="cuda", compute_type="float16")  # Load faster-whisper model with float16 for better performance
+        batched_model = BatchedInferencePipeline(model=whisper_model)  # Initialize BatchedInferencePipeline
+        print("Faster Whisper model loaded.")
+    return batched_model
+
+def process_audio(audio_file):
+    """Process the entire audio file using batched transcription."""
+    if os.path.getsize(audio_file) == 0:
+        return f"Error: Empty audio file {audio_file}"
+
+    try:
+        # Use batched model to transcribe the entire audio file
+        batched_model = load_whisper_model()  # Load the model
+        segments, info = batched_model.transcribe(audio_file, batch_size=16)
+
+        # Collect the transcribed text from the segments
+        transcribed_text = " ".join([segment.text for segment in segments])
+
+        print(f"Processed audio file {audio_file} with result: {transcribed_text}")
+        return transcribed_text
+    except Exception as e:
+        return f"Error processing audio file {audio_file}: {str(e)}"
 
 def transcribe_or_translate(audio_file):
-    """Transcribe audio if in English or translate it if in another language."""
-    model = load_whisper_model()
-    result = model.transcribe(audio_file)
-    language = result.get('language')
-
-    if language == 'en':
-        return result['text'], "transcription"
-    else:
-        translation_result = model.transcribe(audio_file, task="translate")
-        return translation_result['text'], "translation"
+    """Transcribe or translate the entire audio file."""
+    transcription = process_audio(audio_file)
+    return transcription, "translation"

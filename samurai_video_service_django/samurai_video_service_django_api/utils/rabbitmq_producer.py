@@ -3,9 +3,9 @@ import time
 from .rabbitmq_channel import RabbitMQChannel
 
 
-def publish_to_queue(message, queue_name, retries=3, delay=2):
+def publish_to_queue(message, queue_name, retries=3, delay=7):
 
-    channel = RabbitMQChannel.create_channel()
+    connection, channel = RabbitMQChannel.create_channel()
     channel.queue_declare(queue=queue_name, durable=True, passive=True)
 
     for attempt in range(retries):

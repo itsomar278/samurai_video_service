@@ -12,8 +12,8 @@ class Status(models.IntegerChoices):
 
 
 class VideoTranslation(models.Model):
-    request_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    user_id = models.FloatField()
+    request_id = models.UUIDField(unique=True, editable=False)
+    user_id = models.IntegerField()
     start_minute = models.FloatField()
     end_minute = models.FloatField()
     translated_transcription = models.TextField(blank=True, null=True)

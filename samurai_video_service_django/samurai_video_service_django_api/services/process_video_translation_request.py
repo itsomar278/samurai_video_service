@@ -1,4 +1,5 @@
 import json
+import time
 import traceback
 
 from ..models import VideoTranslation, Status
@@ -27,6 +28,10 @@ def process_video_translation_request(ch, method, properties, body):
             'status': Status.RECEIVED
         }
     )
+
+    if not created:
+        # Object already exists and being handled or handled by another replica or thread :)
+        return
 
     try:
         video_translation.status = Status.IN_PROGRESS
