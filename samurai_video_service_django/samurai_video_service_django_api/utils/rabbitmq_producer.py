@@ -6,7 +6,7 @@ from .rabbitmq_channel import RabbitMQChannel
 def publish_to_queue(message, queue_name, retries=3, delay=7):
 
     connection, channel = RabbitMQChannel.create_channel()
-    channel.queue_declare(queue=queue_name, durable=True, passive=True)
+    channel.queue_declare(queue=queue_name, durable=False, passive=False)
 
     for attempt in range(retries):
         try:

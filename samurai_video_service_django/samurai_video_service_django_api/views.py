@@ -6,13 +6,19 @@ from .models import VideoTranslation
 class VideoTranslationStatusView(APIView):
     def get(self, request):
         request_id = request.query_params.get('request_id')
+        user_id = request.query_params.get('user_id')
 
-        if not request_id:
-            return Response({"error": "Request ID is required as a query parameter."},
+        if not request_id or not user_id:
+            return Response({"error": "Request ID and User ID is required as a query parameters."},
                             status=status.HTTP_400_BAD_REQUEST)
 
         try:
             translation = VideoTranslation.objects.get(request_id=request_id)
+
+            if int(translation.user_id) != int(user_id):
+                return Response({"error": "Not Authorized"},
+                                status=status.HTTP_401_UNAUTHORIZED)
+
             return Response({
                 "request_id": str(translation.request_id),
                 "status": translation.get_status_display(),
@@ -28,7 +34,7 @@ class VideoTranslationByUserView(APIView):
             return Response({"error": "User ID is required as a query parameter."},
                              status=status.HTTP_400_BAD_REQUEST)
 
-        translations = VideoTranslation.objects.filter(user_id=user_id)
+        translations = VideoTranslation.objects.filter(user_id=int(user_id))
 
         if not translations.exists():
             return Response({"error": "No translations found for this user."},
